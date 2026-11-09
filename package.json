@@ -1,0 +1,21 @@
+{
+  "name": "excellence-video-ai",
+  "version": "0.1.0",
+  "description": "Excellence Video AI — Etapa 1: importação de vídeos (Google Drive somente leitura ou pasta local) e triagem automática.",
+  "main": "server.js",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/triage.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0",
+    "googleapis": "^144.0.0"
+  }
+}
