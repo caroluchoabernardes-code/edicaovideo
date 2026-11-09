@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Excellence Video AI · Triagem</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="mark">E</span>
+      <div>
+        <h1>Excellence Video AI</h1>
+        <p>Etapa 1 · Importação e triagem</p>
+      </div>
+    </div>
+    <a class="btn ghost" href="/api/export.csv">Exportar planilha</a>
+  </header>
+
+  <main>
+    <section class="sources">
+      <div class="card">
+        <h2>Google Drive <span class="pill" id="driveBadge">—</span></h2>
+        <p class="hint">Somente leitura: o app só baixa cópias. Nada é alterado, movido ou apagado no seu Drive.</p>
+        <div class="row">
+          <input id="driveFolder" placeholder="Cole o link da pasta do Drive" />
+          <button class="btn" id="driveImport">Importar</button>
+        </div>
+        <a class="btn ghost small" id="driveConnect" href="/api/drive/connect">Conectar Google Drive</a>
+      </div>
+
+      <div class="card">
+        <h2>Pasta do Mac</h2>
+        <p class="hint">Ex.: a pasta do Google Drive para computador. O app só lê os vídeos, sem alterar nada.</p>
+        <div class="row">
+          <input id="localFolder" placeholder="/Users/carol/Google Drive/Meu Drive/Videos" />
+          <button class="btn" id="localScan">Analisar</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="progress" id="progress" hidden>
+      <div class="bar"><span id="barFill"></span></div>
+      <p id="progressText"></p>
+    </section>
+
+    <section class="msg" id="msg" hidden></section>
+
+    <nav class="filters" id="filters"></nav>
+
+    <section class="grid" id="grid"></section>
+    <p class="empty" id="empty" hidden>Nenhum vídeo ainda. Importe do Drive ou analise uma pasta do Mac.</p>
+  </main>
+
+  <dialog id="player">
+    <video id="playerVideo" controls playsinline></video>
+    <form method="dialog"><button class="btn ghost">Fechar</button></form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
