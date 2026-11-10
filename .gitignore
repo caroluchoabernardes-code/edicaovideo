@@ -6,3 +6,9 @@ token.json
 .env
 .DS_Store
 *.log
+output/
+music/**/*.mp3
+music/**/*.wav
+music/**/*.m4a
+music/**/*.aac
+music/**/*.ogg

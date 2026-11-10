@@ -1,4 +1,4 @@
-// Excellence Video AI — Etapa 1: importação + triagem.
+// Excellence Video AI — Etapa 1 (importação + triagem) e Etapa 2 (edição dos brutos).
 // Roda só no seu Mac: abra http://localhost:3000 depois de "npm start".
 const express = require('express');
 const fs = require('fs');
@@ -8,6 +8,8 @@ const store = require('./src/store');
 const media = require('./src/media');
 const drive = require('./src/drive');
 const { triageAll, STATUSES } = require('./src/triage');
+const editor = require('./src/editor');
+const { TONES } = require('./src/tones');
 
 const PORT = Number(process.env.PORT) || 3000;
 const app = express();
@@ -27,6 +29,49 @@ function startJob(label, fn) {
     });
   return true;
 }
+
+// ---------- fila de edição (um vídeo por vez) ----------
+const editQueue = [];
+let editing = null;
+
+function setEdit(id, patch) {
+  const list = store.getVideos();
+  const v = list.find((x) => x.id === id);
+  if (!v) return null;
+  v.edit = { ...(v.edit || {}), ...patch, updatedAt: Date.now() };
+  store.saveVideos(list);
+  return v;
+}
+
+async function runEdits() {
+  if (editing) return;
+  while (editQueue.length) {
+    const { id, tone } = editQueue.shift();
+    const v = store.getVideos().find((x) => x.id === id);
+    if (!v) continue;
+    editing = id;
+    setEdit(id, { state: 'editando', step: 'Começando', error: null });
+    try {
+      const r = await editor.editVideo(v, {
+        toneKey: tone,
+        handle: store.getConfig().handle ?? '@nutricaroluchoa',
+        onStep: (step) => setEdit(id, { step }),
+      });
+      setEdit(id, { state: 'pronto', step: null, ...r });
+    } catch (e) {
+      setEdit(id, { state: 'erro', step: null, error: e.message });
+    }
+    editing = null;
+  }
+}
+
+// Se o app foi fechado no meio de uma edição, ela volta para a fila.
+for (const v of store.getVideos()) {
+  if (v.edit && (v.edit.state === 'editando' || v.edit.state === 'na fila')) {
+    editQueue.push({ id: v.id, tone: v.edit.requestedTone || 'auto' });
+  }
+}
+setTimeout(runEdits, 500);
 
 const idFor = (key) => crypto.createHash('sha1').update(key).digest('hex').slice(0, 16);
 
@@ -50,6 +95,7 @@ async function analyze(file, base, previous) {
     manual: previous?.manual || false,
     hasCaptions: previous?.hasCaptions ?? null,
     note: previous?.note || '',
+    edit: previous?.edit,
   };
   if (!info.error) {
     const thumb = path.join(store.paths.THUMBS_DIR, `${rec.id}.jpg`);
@@ -75,6 +121,21 @@ function walk(dir) {
   return out;
 }
 
+// Antes de salvar uma varredura longa, mantém o que mudou no painel enquanto ela rodava.
+function saveMerged(list) {
+  const fresh = new Map(store.getVideos().map((v) => [v.id, v]));
+  for (const v of list) {
+    const f = fresh.get(v.id);
+    if (!f) continue;
+    v.edit = f.edit;
+    v.manual = f.manual;
+    v.hasCaptions = f.hasCaptions;
+    v.note = f.note;
+    if (f.manual) v.status = f.status;
+  }
+  store.saveVideos(triageAll(list));
+}
+
 function upsert(list, rec) {
   const i = list.findIndex((v) => v.id === rec.id);
   if (i >= 0) list[i] = rec;
@@ -86,7 +147,10 @@ app.get('/api/state', (req, res) => {
   const videos = store.getVideos();
   const counts = Object.fromEntries(STATUSES.map((s) => [s, videos.filter((v) => v.status === s).length]));
   res.json({
-    config: store.getConfig(),
+    config: { handle: '@nutricaroluchoa', ...store.getConfig() },
+    tones: Object.fromEntries(Object.entries(TONES).map(([k, t]) => [k, t.label])),
+    music: editor.musicCounts(),
+    queue: editQueue.length + (editing ? 1 : 0),
     drive: { hasCredentials: drive.hasCredentials(), connected: drive.isConnected() },
     counts,
     total: videos.length,
@@ -125,7 +189,7 @@ app.post('/api/scan/local', (req, res) => {
       }
       job.done++;
     }
-    store.saveVideos(triageAll(list));
+    saveMerged(list);
   });
   if (!ok) return res.status(409).json({ error: 'Já existe uma análise em andamento.' });
   res.json({ started: true });
@@ -170,7 +234,7 @@ app.post('/api/drive/import', (req, res) => {
       }
       job.done++;
     }
-    store.saveVideos(triageAll(list));
+    saveMerged(list);
   });
   if (!ok) return res.status(409).json({ error: 'Já existe uma importação em andamento.' });
   res.json({ started: true });
@@ -197,6 +261,28 @@ app.patch('/api/videos/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// Aprova um vídeo para edição. tone = 'auto' ou um dos 6 tons.
+app.post('/api/videos/:id/edit', (req, res) => {
+  const tone = req.body.tone || 'auto';
+  if (tone !== 'auto' && !TONES[tone]) return res.status(400).json({ error: 'Tom inválido' });
+  const v = store.getVideos().find((x) => x.id === req.params.id);
+  if (!v) return res.status(404).json({ error: 'Vídeo não encontrado' });
+  if (v.error) return res.status(400).json({ error: 'Esse arquivo não pode ser lido.' });
+  if (editing === v.id || editQueue.some((q) => q.id === v.id)) return res.status(409).json({ error: 'Esse vídeo já está na fila.' });
+  editQueue.push({ id: v.id, tone });
+  setEdit(v.id, { state: 'na fila', requestedTone: tone, step: null, error: null });
+  runEdits();
+  res.json({ queued: true });
+});
+
+app.get('/api/output/:id', (req, res) => {
+  const v = store.getVideos().find((x) => x.id === req.params.id);
+  const out = v?.edit?.output;
+  if (!out || !fs.existsSync(out)) return res.status(404).end();
+  if (req.query.download) return res.download(out, v.edit.outputName);
+  res.sendFile(out);
+});
+
 app.get('/api/thumb/:id', (req, res) => {
   const f = path.join(store.paths.THUMBS_DIR, `${req.params.id.replace(/[^a-f0-9]/g, '')}.jpg`);
   if (!fs.existsSync(f)) return res.status(404).end();
@@ -221,6 +307,6 @@ app.get('/api/export.csv', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n  Excellence Video AI — Etapa 1`);
+  console.log(`\n  Excellence Video AI — Etapas 1 e 2`);
   console.log(`  Abra no navegador: http://localhost:${PORT}\n`);
 });
