@@ -113,3 +113,11 @@ dialog .btn.ghost { color: #fff; }
   main { padding: 16px; }
   .row { flex-direction: column; }
 }
+.edit { border-top: 1px dashed var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.edit-status { font-size: 12px; font-weight: 700; }
+.es-na-fila { color: var(--muted); } .es-editando { color: var(--gold); }
+.es-pronto { color: var(--pronto); } .es-erro { color: #b42318; }
+.edit-error { font-size: 12px; color: #b42318; word-break: break-word; }
+.edit-links a { font-size: 13px; font-weight: 600; color: var(--brand); }
+.flags { margin: 0; padding-left: 16px; font-size: 12px; }
+.flag-review { color: var(--revisar); } .flag-sign { color: #b42318; font-weight: 600; }

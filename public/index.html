@@ -12,7 +12,7 @@
       <span class="mark">E</span>
       <div>
         <h1>Excellence Video AI</h1>
-        <p>Etapa 1 · Importação e triagem</p>
+        <p>Etapas 1 e 2 · Triagem e edição</p>
       </div>
     </div>
     <a class="btn ghost" href="/api/export.csv">Exportar planilha</a>
@@ -28,6 +28,16 @@
           <button class="btn" id="driveImport">Importar</button>
         </div>
         <a class="btn ghost small" id="driveConnect" href="/api/drive/connect">Conectar Google Drive</a>
+      </div>
+
+      <div class="card">
+        <h2>Edição <span class="pill" id="queueBadge">—</span></h2>
+        <p class="hint">Clique em <b>Editar</b> nos vídeos brutos. O tom é escolhido sozinho pela fala, ou você escolhe.</p>
+        <div class="row">
+          <input id="handle" placeholder="@nutricaroluchoa" />
+          <button class="btn ghost small" id="saveHandle">Salvar @</button>
+        </div>
+        <p class="hint" id="musicInfo"></p>
       </div>
 
       <div class="card">
